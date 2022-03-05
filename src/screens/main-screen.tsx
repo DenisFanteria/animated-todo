@@ -1,6 +1,7 @@
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useState, useEffect } from 'react'
 import { VStack, Fab, Icon, useColorModeValue } from 'native-base'
 import { AntDesign } from '@expo/vector-icons'
+import { useAsyncStorage } from '@react-native-async-storage/async-storage'
 import AnimatedColorBox from '../components/animated-color-box'
 import TaskList from '../components/task-list'
 import shortid from 'shortid'
@@ -22,7 +23,25 @@ const initialData = [
 
 export default function MainScreen() {
   const [data, setData] = useState(initialData)
+  const [loaded, setLoaded] = useState(false)
+  const { getItem, setItem } = useAsyncStorage('data')
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
+
+  const readItemFromStorage = async () => {
+    const item = await getItem()
+    const final = item != null ? JSON.parse(item) : initialData
+    setData(final)
+    setLoaded(true)
+  }
+
+  const writeItemToStorage = async newValue => {
+    await setItem(JSON.stringify(newValue))
+    setData(newValue)
+  }
+
+  useEffect(() => {
+    readItemFromStorage()
+  }, [])
 
   const handleToggleTaskItem = useCallback(item => {
     setData(prevData => {
@@ -43,6 +62,7 @@ export default function MainScreen() {
         ...item,
         subject: newSubject
       }
+      writeItemToStorage(newData)
       return newData
     })
   }, [])
@@ -55,6 +75,7 @@ export default function MainScreen() {
   const handleRemoveItem = useCallback(item => {
     setData(prevData => {
       const newData = prevData.filter(i => i !== item)
+      writeItemToStorage(newData)
       return newData
     })
   }, [])
@@ -80,15 +101,17 @@ export default function MainScreen() {
         borderTopRightRadius="20px"
         pt="20px"
       >
-        <TaskList
-          data={data}
-          onToggleItem={handleToggleTaskItem}
-          onChangeSubject={handleChangeTaskItemSubject}
-          onFinishEditing={handleFinishEditingTaskItem}
-          onPressLabel={handlePressTaskItemLabel}
-          onRemoveItem={handleRemoveItem}
-          editingItemId={editingItemId}
-        />
+        {loaded && (
+          <TaskList
+            data={data}
+            onToggleItem={handleToggleTaskItem}
+            onChangeSubject={handleChangeTaskItemSubject}
+            onFinishEditing={handleFinishEditingTaskItem}
+            onPressLabel={handlePressTaskItemLabel}
+            onRemoveItem={handleRemoveItem}
+            editingItemId={editingItemId}
+          />
+        )}
       </VStack>
       <Fab
         position="absolute"
